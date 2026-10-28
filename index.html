@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Future Predictions Dice: Will vs. Going To</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- Three.js for Genuine 3D WebGL Dice -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Plus Jakarta Sans', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 20% 20%, #e0e7ff 0%, #ede9fe 48%, #e2e8f0 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+            color: #0f172a;
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        /* Ambient background shapes for visible glass depth */
+        .ambient-orb {
+            position: fixed;
+            border-radius: 9999px;
+            filter: blur(85px);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.65;
+        }
+
+        /* Frosted Glass Surfaces */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.68);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+        }
+
+        .glass-pill {
+            background: rgba(255, 255, 255, 0.78);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .glass-pill:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.96);
+            transform: translateY(-2px);
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+        }
+        .glass-pill:active:not(:disabled) {
+            transform: translateY(1px) scale(0.98);
+        }
+        .glass-pill:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        /* 3D Canvas Container */
+        #dice-canvas-container {
+            position: relative;
+            width: 100%;
+            height: 480px;
+            max-width: 520px;
+            margin: 0 auto;
+            cursor: pointer;
+            touch-action: none;
+        }
+        @media (max-width: 640px) {
+            #dice-canvas-container {
+                height: 340px;
+            }
+        }
+
+        /* Option feedback animations */
+        @keyframes pulseRing {
+            0% { transform: scale(0.85); opacity: 0.85; }
+            100% { transform: scale(1.65); opacity: 0; }
+        }
+        .animate-ring-burst {
+            animation: pulseRing 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes cardEnter {
+            0% { opacity: 0; transform: translateY(14px) scale(0.985); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-card-in {
+            animation: cardEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes correctPop {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.04); }
+            75% { transform: scale(0.99); }
+            100% { transform: scale(1.01); }
+        }
+        .option-correct {
+            animation: correctPop 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            color: #ffffff !important;
+            border-color: #34d399 !important;
+            box-shadow: 0 14px 34px rgba(16, 185, 129, 0.35) !important;
+        }
+
+        @keyframes wrongShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            50% { transform: translateX(6px); }
+            75% { transform: translateX(-4px); }
+        }
+        .option-wrong {
+            animation: wrongShake 0.35s ease-in-out;
+            background: rgba(244, 63, 94, 0.12) !important;
+            border-color: rgba(244, 63, 94, 0.45) !important;
+            color: #be123c !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-8 lg:p-12 relative">
+
+    <!-- Soft Ambient Glass Orbs -->
+    <div class="ambient-orb w-[28rem] h-[28rem] bg-indigo-300 -top-24 -left-20"></div>
+    <div class="ambient-orb w-[30rem] h-[30rem] bg-purple-300 bottom-0 right-0"></div>
+    <div class="ambient-orb w-80 h-80 bg-sky-200 top-1/3 left-1/3"></div>
+
+    <!-- Fullscreen Particle Celebration Canvas -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50 w-full h-full"></canvas>
+
+    <!-- ================= ULTRA-MINIMALIST SPLIT STAGE ================= -->
+    <main class="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+
+        <!-- LEFT COLUMN: 3D Falling Dice & Minimalist SVG Dice Button -->
+        <section class="lg:col-span-5 flex flex-col items-center justify-center relative">
+            
+            <!-- 3D WebGL Dice Container -->
+            <div id="dice-canvas-container" role="region" aria-label="Interactive 3D Category Dice" title="Click to roll the dice">
+                <!-- Landing Burst Effect Ring -->
+                <div id="dice-landing-ring" class="pointer-events-none hidden absolute inset-0 m-auto w-52 h-52 rounded-full border-2 border-indigo-400/70"></div>
+                
+                <!-- WebGL Fallback Notice -->
+                <div id="webgl-fallback" class="hidden w-full h-full flex flex-col items-center justify-center text-center p-6 glass-panel rounded-3xl">
+                    <div id="fallback-dice-face" class="w-44 h-44 rounded-3xl bg-indigo-600 text-white flex flex-col items-center justify-center p-5 shadow-xl border border-white/40 font-display font-bold text-center">
+                        <span class="text-xs tracking-widest opacity-70 mb-2" id="fallback-icon">I</span>
+                        <span class="text-base leading-tight" id="fallback-title">MAKE A PREDICTION</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Single Minimalist Vector Dice Icon Button -->
+            <button id="btn-roll-dice" type="button" class="glass-pill w-16 h-16 rounded-full flex items-center justify-center text-slate-800 -mt-2 group" aria-label="Roll the Dice" title="Roll the Dice">
+                <svg class="w-7 h-7 stroke-slate-800 transition-transform duration-300 group-hover:rotate-45" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="4" />
+                    <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
+                    <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
+                    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+                    <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
+                    <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
+                </svg>
+            </button>
+        </section>
+
+        <!-- RIGHT COLUMN: Elegant Translucent Question Area -->
+        <section id="activity-panel" class="lg:col-span-7 min-h-[420px] flex flex-col justify-center">
+
+            <!-- 1. Subtle Translucent Waiting State -->
+            <div id="empty-question-view" class="glass-panel rounded-[2rem] p-12 sm:p-16 text-center flex flex-col items-center justify-center gap-5 transition-opacity duration-500">
+                <div class="w-14 h-14 rounded-2xl bg-white/80 border border-white flex items-center justify-center text-slate-700 shadow-sm">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="4" />
+                        <circle cx="8.5" cy="8.5" r="1" fill="currentColor" />
+                        <circle cx="12" cy="12" r="1" fill="currentColor" />
+                        <circle cx="15.5" cy="15.5" r="1" fill="currentColor" />
+                    </svg>
+                </div>
+                <p class="text-2xl sm:text-3xl font-display font-semibold text-slate-700 tracking-tight">
+                    Roll the dice to begin
+                </p>
+            </div>
+
+            <!-- 2. Active Question Glass Card (Appears when dice lands) -->
+            <div id="question-card-wrapper" class="hidden glass-panel rounded-[2rem] p-8 sm:p-12 flex-col justify-between gap-8 transition-all duration-500">
+                
+                <!-- Minimalist Category Header + Counter -->
+                <div class="flex items-center justify-between gap-4 border-b border-slate-900/10 pb-5">
+                    <div class="flex items-center gap-3">
+                        <span id="activity-color-dot" class="w-3.5 h-3.5 rounded-full bg-indigo-500"></span>
+                        <h2 id="activity-category-title" class="text-xs sm:text-sm font-display font-bold tracking-[0.18em] text-slate-600 uppercase">
+                            MAKE A PREDICTION
+                        </h2>
+                    </div>
+
+                    <span id="activity-counter-badge" class="bg-white/80 border border-white text-slate-700 px-3.5 py-1 rounded-full text-xs font-semibold tracking-wider tabular-nums">
+                        01 / 15
+                    </span>
+                </div>
+
+                <!-- Exhausted Category View -->
+                <div id="exhausted-category-view" class="hidden flex-col items-center justify-center text-center py-12 gap-5">
+                    <h3 class="text-2xl sm:text-3xl font-display font-bold text-slate-800">
+                        All 15 prompts in <span id="exhausted-cat-name">this category</span> completed
+                    </h3>
+                    <button id="btn-exhausted-replay-cat" type="button" class="glass-pill px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-slate-700">
+                        Reset Category
+                    </button>
+                </div>
+
+                <!-- Active Question Content -->
+                <div id="active-question-view" class="flex flex-col gap-8 py-2">
+                    
+                    <!-- Large Typography Prompt -->
+                    <div class="flex flex-col gap-4">
+                        <p id="activity-prompt-text" class="text-3xl sm:text-4xl lg:text-[2.75rem] font-display font-bold text-slate-900 leading-[1.22] tracking-tight">
+                            Look at those dark clouds! It ______ rain soon.
+                        </p>
+                        <p id="activity-subprompt" class="text-base sm:text-lg font-medium text-slate-500 leading-relaxed">
+                            Complete the sentence and explain why.
+                        </p>
+
+                        <!-- Interactive Option Pills (Only for multiple choice / gap fill) -->
+                        <div id="activity-options-container" class="hidden grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                            <!-- Option A & B injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Subtle Minimalist Timer (Only shown for Sentence Starters) -->
+                    <div id="timer-widget" class="hidden items-center justify-end pt-2 border-t border-slate-900/10">
+                        <div class="bg-white/75 border border-white px-4 py-2 rounded-full text-xs flex items-center gap-3">
+                            <span id="timer-display" class="font-display font-bold text-sm text-slate-800 tabular-nums tracking-wider">00:30</span>
+                            <button id="btn-timer-toggle" type="button" class="font-semibold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 transition-colors">Start</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- ================= APPLICATION LOGIC ================= -->
+    <script>
+        /**
+         * 1. STRUCTURED CATEGORY DEFINITIONS & 90 UNIQUE ACTIVITIES BANK
+         */
+        const CATEGORIES = [
+            {
+                id: 'prediction',
+                faceIndex: 0,
+                roman: 'I',
+                title: 'MAKE A PREDICTION',
+                shortTitle: 'MAKE A\nPREDICTION',
+                colorHex: '#6366f1',
+                colorDarkHex: '#4338ca'
+            },
+            {
+                id: 'fill_blank',
+                faceIndex: 1,
+                roman: 'II',
+                title: 'FILL IN THE BLANK',
+                shortTitle: 'FILL IN\nTHE BLANK',
+                colorHex: '#10b981',
+                colorDarkHex: '#047857'
+            },
+            {
+                id: 'answer_question',
+                faceIndex: 2,
+                roman: 'III',
+                title: 'ANSWER THE QUESTION',
+                shortTitle: 'ANSWER THE\nQUESTION',
+                colorHex: '#0ea5e9',
+                colorDarkHex: '#0369a1'
+            },
+            {
+                id: 'continue_sentence',
+                faceIndex: 3,
+                roman: 'IV',
+                title: 'CONTINUE THE SENTENCE',
+                shortTitle: 'CONTINUE THE\nSENTENCE',
+                colorHex: '#f59e0b',
+                colorDarkHex: '#b45309'
+            },
+            {
+                id: 'choose_form',
+                faceIndex: 4,
+                roman: 'V',
+                title: 'CHOOSE WILL OR GOING TO',
+                shortTitle: 'CHOOSE WILL\nOR GOING TO',
+                colorHex: '#ec4899',
+                colorDarkHex: '#be185d'
+            },
+            {
+                id: 'future_challenge',
+                faceIndex: 5,
+                roman: 'VI',
+                title: 'FUTURE CHALLENGE',
+                shortTitle: 'FUTURE\nCHALLENGE',
+                colorHex: '#475569',
+                colorDarkHex: '#1e293b'
+            }
+        ];
+
+        const QUESTION_BANK = {
+            prediction: [
+                { id: 'pred_1', prompt: 'Look at the dark clouds in the sky. What do you think is going to happen?', subprompt: 'Make a complete prediction based on present evidence.' },
+                { id: 'pred_2', prompt: 'What do you think everyday life will be like in the year 2050?', subprompt: 'Share your opinion using a full sentence.' },
+                { id: 'pred_3', prompt: 'Predict what intelligent robots will do for families in the future.', subprompt: 'Use "will" to express your future prediction.' },
+                { id: 'pred_4', prompt: 'What will your town or city look like in 20 years?', subprompt: 'Describe buildings, parks, or traffic.' },
+                { id: 'pred_5', prompt: 'What do you think will happen to smartphones in the next 50 years?', subprompt: 'Make a prediction and justify your idea.' },
+                { id: 'pred_6', prompt: 'Look at a traveler carrying a suitcase at the airport gate. What is going to happen?', subprompt: 'Use "be going to" based on what you see.' },
+                { id: 'pred_7', prompt: 'A student has studied every afternoon all week for tomorrow’s test. What is going to happen?', subprompt: 'Predict the result based on present evidence.' },
+                { id: 'pred_8', prompt: 'What kind of food do you think people will eat in the future?', subprompt: 'Give a complete sentence using "I think..."' },
+                { id: 'pred_9', prompt: 'The home team is winning 4–0 with only two minutes left. Who is going to win the match?', subprompt: 'Explain your prediction using the score as evidence.' },
+                { id: 'pred_10', prompt: 'What will schools and classrooms be like in 100 years?', subprompt: 'Predict how students will learn.' },
+                { id: 'pred_11', prompt: 'Someone is opening an umbrella under heavy gray clouds. What is going to happen?', subprompt: 'Use "be going to" in a complete sentence.' },
+                { id: 'pred_12', prompt: 'What will transportation be like in the year 2100?', subprompt: 'Think about trains, planes, or cars.' },
+                { id: 'pred_13', prompt: 'What do you think your personal life will be like in ten years?', subprompt: 'Make one or two predictions about yourself.' },
+                { id: 'pred_14', prompt: 'Someone is putting candles on a chocolate cake in the kitchen. What is going to happen?', subprompt: 'Predict what the family is going to do next.' },
+                { id: 'pred_15', prompt: 'What will the world be like when today’s children are adults?', subprompt: 'Make a thoughtful prediction in a full sentence.' }
+            ],
+            fill_blank: [
+                { id: 'fill_1', prompt: 'Look at those black clouds! It ______ rain soon.', subprompt: 'Choose the best form to complete the sentence.', options: ['is going to', 'will'], correctIndex: 0 },
+                { id: 'fill_2', prompt: 'I think people ______ live on Mars one day.', subprompt: 'Choose the best form to complete the sentence.', options: ['will', 'are going to'], correctIndex: 0 },
+                { id: 'fill_3', prompt: 'We have already bought the plane tickets. We ______ travel to London tomorrow.', subprompt: 'Choose the best form to complete the sentence.', options: ['are going to', 'will'], correctIndex: 0 },
+                { id: 'fill_4', prompt: 'Don’t worry about the math exercise. I promise I ______ help you with your homework.', subprompt: 'Choose the best form to complete the sentence.', options: ['will', 'am going to'], correctIndex: 0 },
+                { id: 'fill_5', prompt: 'She is studying medicine at university because she ______ become a doctor.', subprompt: 'Choose the best form to complete the sentence.', options: ['is going to', 'will'], correctIndex: 0 },
+                { id: 'fill_6', prompt: 'I think our school team ______ win the championship one day.', subprompt: 'Choose the best form to complete the sentence.', options: ['will', 'is going to'], correctIndex: 0 },
+                { id: 'fill_7', prompt: 'Be careful! Your shoelaces are untied! You ______ trip and fall!', subprompt: 'Choose the best form to complete the sentence.', options: ['are going to', 'will'], correctIndex: 0 },
+                { id: 'fill_8', prompt: 'They have already signed the contract. They ______ move to another city next month.', subprompt: 'Choose the best form to complete the sentence.', options: ['are going to', 'will'], correctIndex: 0 },
+                { id: 'fill_9', prompt: 'You love adventure stories, so I’m sure you ______ enjoy this new film.', subprompt: 'Choose the best form to complete the sentence.', options: ['will', 'are going to'], correctIndex: 0 },
+                { id: 'fill_10', prompt: 'Watch out! That car is driving way too fast on the ice! It ______ crash into the wall!', subprompt: 'Choose the best form to complete the sentence.', options: ['is going to', 'will'], correctIndex: 0 },
+                { id: 'fill_11', prompt: 'Put your wallet away! I ______ pay for the cinema tickets today.', subprompt: 'Choose the best form to complete the sentence.', options: ['will', 'am going to'], correctIndex: 0 },
+                { id: 'fill_12', prompt: 'He has saved enough money all year because he ______ buy a new laptop this Friday.', subprompt: 'Choose the best form to complete the sentence.', options: ['is going to', 'will'], correctIndex: 0 },
+                { id: 'fill_13', prompt: 'Maybe it ______ snow in our town next winter.', subprompt: 'Choose the best form to complete the sentence.', options: ['will', 'is going to'], correctIndex: 0 },
+                { id: 'fill_14', prompt: 'We have planned everything and invited 20 friends. We ______ have a party on Saturday.', subprompt: 'Choose the best form to complete the sentence.', options: ['are going to', 'will'], correctIndex: 0 },
+                { id: 'fill_15', prompt: 'I believe green technology ______ make our cities cleaner in the future.', subprompt: 'Choose the best form to complete the sentence.', options: ['will', 'is going to'], correctIndex: 0 }
+            ],
+            answer_question: [
+                { id: 'ans_1', prompt: 'What are you going to do this weekend?', subprompt: 'Answer in a full sentence using "I am going to..."' },
+                { id: 'ans_2', prompt: 'Where do you think you will live in the future?', subprompt: 'Answer with a complete sentence using "I think I will..."' },
+                { id: 'ans_3', prompt: 'What are you going to study or practice next year?', subprompt: 'Talk about your personal plans.' },
+                { id: 'ans_4', prompt: 'Do you think robots will replace some human jobs in the future?', subprompt: 'Give your opinion and explain why.' },
+                { id: 'ans_5', prompt: 'What will you do if you feel bored this evening?', subprompt: 'Answer using a complete conditional sentence.' },
+                { id: 'ans_6', prompt: 'Are you going to learn any new skill or hobby this year?', subprompt: 'Share your intentions with the class.' },
+                { id: 'ans_7', prompt: 'What do you think schools will be like in 2050?', subprompt: 'Use "will" to describe future classrooms.' },
+                { id: 'ans_8', prompt: 'What are you going to do right after this English class?', subprompt: 'Describe your immediate plan.' },
+                { id: 'ans_9', prompt: 'Do you think ordinary tourists will travel to Mars one day?', subprompt: 'Share your belief using "will" or "won’t".' },
+                { id: 'ans_10', prompt: 'What are you going to do during your next school holiday?', subprompt: 'Talk about your holiday plans.' },
+                { id: 'ans_11', prompt: 'Will people use flying cars in the future? Why or why not?', subprompt: 'Answer in a complete sentence.' },
+                { id: 'ans_12', prompt: 'What will you do if you win a million dollars?', subprompt: 'Name at least two things you will do.' },
+                { id: 'ans_13', prompt: 'Are you going to watch a movie or series this week? Which one?', subprompt: 'Answer using "I am going to..."' },
+                { id: 'ans_14', prompt: 'How will technology change the way people communicate in the next 20 years?', subprompt: 'Share your prediction with the class.' },
+                { id: 'ans_15', prompt: 'What are you going to do this month to improve your English?', subprompt: 'Describe your study plan.' }
+            ],
+            continue_sentence: [
+                { id: 'cont_1', prompt: 'In 2050, people will...', subprompt: 'Finish the sentence with your own creative idea.' },
+                { id: 'cont_2', prompt: 'Next weekend, I’m going to...', subprompt: 'Finish the sentence with a real or imagined plan.' },
+                { id: 'cont_3', prompt: 'One day, I will...', subprompt: 'Complete the sentence with a future dream or prediction.' },
+                { id: 'cont_4', prompt: 'When I finish school, I’m going to...', subprompt: 'Complete the sentence with your intention.' },
+                { id: 'cont_5', prompt: 'If I have more free time this week, I will...', subprompt: 'Complete the first conditional sentence.' },
+                { id: 'cont_6', prompt: 'Tomorrow afternoon, I’m going to...', subprompt: 'Complete the sentence with a clear plan.' },
+                { id: 'cont_7', prompt: 'In the future, schools will...', subprompt: 'Complete the prediction about education.' },
+                { id: 'cont_8', prompt: 'My friends and I are going to...', subprompt: 'Describe a shared plan with your friends.' },
+                { id: 'cont_9', prompt: 'If I become famous one day, I will...', subprompt: 'Finish the sentence with a complete clause.' },
+                { id: 'cont_10', prompt: 'This summer, my family is going to...', subprompt: 'Finish the sentence about your family’s plans.' },
+                { id: 'cont_11', prompt: 'Robots will probably...', subprompt: 'Complete the sentence with a prediction.' },
+                { id: 'cont_12', prompt: 'When I have my own house, I’m going to...', subprompt: 'Complete the sentence with your future intention.' },
+                { id: 'cont_13', prompt: 'In 100 years, people will...', subprompt: 'Complete the sentence about life a century from now.' },
+                { id: 'cont_14', prompt: 'If I feel tired tonight, I will...', subprompt: 'Complete the sentence naturally.' },
+                { id: 'cont_15', prompt: 'Next year, I’m going to...', subprompt: 'Complete the sentence with a personal resolution.' }
+            ],
+            choose_form: [
+                { id: 'ch_1', prompt: 'Look at that boy on the top of the ladder! The ladder is shaking! He...', subprompt: 'Select the best option and explain why.', options: ['A. will fall!', 'B. is going to fall!'], correctIndex: 1 },
+                { id: 'ch_2', prompt: 'The telephone is ringing in the hallway. "Don’t get up, Mom!..."', subprompt: 'Select the best option and explain why.', options: ['A. I’ll answer it!', 'B. I’m going to answer it!'], correctIndex: 0 },
+                { id: 'ch_3', prompt: '"Why did you buy all this flour, sugar, and chocolate?" — "Because..."', subprompt: 'Select the best option and explain why.', options: ['A. I will bake a birthday cake.', 'B. I’m going to bake a birthday cake.'], correctIndex: 1 },
+                { id: 'ch_4', prompt: 'I don’t think people ______ use paper money in 2060.', subprompt: 'Select the best option and explain why.', options: ['A. will', 'B. are going to'], correctIndex: 0 },
+                { id: 'ch_5', prompt: '"Your suitcase looks super heavy! Wait a second,..."', subprompt: 'Select the best option and explain why.', options: ['A. I’ll carry it for you.', 'B. I’m going to carry it for you.'], correctIndex: 0 },
+                { id: 'ch_6', prompt: '"What are your plans for Friday night?" — "We have already booked a table..."', subprompt: 'Select the best option and explain why.', options: ['A. We will eat at the Italian restaurant.', 'B. We’re going to eat at the Italian restaurant.'], correctIndex: 1 },
+                { id: 'ch_7', prompt: 'Look at the traffic jam ahead of us! It is completely stopped. We...', subprompt: 'Select the best option and explain why.', options: ['A. are going to be late for the concert.', 'B. will be late for the concert.'], correctIndex: 0 },
+                { id: 'ch_8', prompt: '"Please don’t tell anyone my secret!" — "Relax, I promise..."', subprompt: 'Select the best option and explain why.', options: ['A. I won’t tell anyone.', 'B. I’m not going to tell anyone.'], correctIndex: 0 },
+                { id: 'ch_9', prompt: 'Waiter: "Are you ready to order?" — Customer: "Yes, I think..."', subprompt: 'Select the best option and explain why.', options: ['A. I’ll have the grilled salmon, please.', 'B. I’m going to have the grilled salmon, please.'], correctIndex: 0 },
+                { id: 'ch_10', prompt: '"______ invite Lucas to your graduation party next Saturday?"', subprompt: 'Select the best option and explain why.', options: ['A. Are you going to', 'B. Will you'], correctIndex: 0 },
+                { id: 'ch_11', prompt: 'Look at the baby’s face! His eyes are closing. He...', subprompt: 'Select the best option and explain why.', options: ['A. is going to fall asleep right now.', 'B. will fall asleep right now.'], correctIndex: 0 },
+                { id: 'ch_12', prompt: 'In my opinion, electric airplanes ______ become common in thirty years.', subprompt: 'Select the best option and explain why.', options: ['A. will', 'B. are going to'], correctIndex: 0 },
+                { id: 'ch_13', prompt: '"Oh no, I forgot my pencil case at home!" — "No problem,..."', subprompt: 'Select the best option and explain why.', options: ['A. I’ll lend you a pen.', 'B. I’m going to lend you a pen.'], correctIndex: 0 },
+                { id: 'ch_14', prompt: 'Sarah has packed her gym bag and put on her running shoes. She...', subprompt: 'Select the best option and explain why.', options: ['A. is going to exercise in the park.', 'B. will exercise in the park.'], correctIndex: 0 },
+                { id: 'ch_15', prompt: '"______ help me move this table, please?"', subprompt: 'Select the best option and explain why.', options: ['A. Will you', 'B. Are you going to'], correctIndex: 0 }
+            ],
+            future_challenge: [
+                { id: 'chal_1', prompt: 'Make two predictions about life in the year 2100: one positive prediction and one negative prediction.', subprompt: 'Speak in full sentences using "will" and "won’t".' },
+                { id: 'chal_2', prompt: 'Describe three specific things you are going to do next weekend.', subprompt: 'Use "I am going to..." for your planned intentions.' },
+                { id: 'chal_3', prompt: 'Make a future prediction using "I think..." and explain two reasons for your opinion.', subprompt: 'Connect your ideas with "because".' },
+                { id: 'chal_4', prompt: 'Create a short 4-line dialogue with a classmate that includes one prior plan (going to) and one spontaneous decision (will).', subprompt: 'Act it out aloud!' },
+                { id: 'chal_5', prompt: 'Explain the difference in meaning between: "It will rain tomorrow" and "Look at those clouds! It’s going to rain."', subprompt: 'Give a clear grammar explanation in your own words.' },
+                { id: 'chal_6', prompt: 'Imagine you are organizing a class trip. Describe three things you are going to plan before the trip.', subprompt: 'Use "We are going to..."' },
+                { id: 'chal_7', prompt: 'Make two predictions about your favorite sport or team: one based on present evidence and one based on your opinion.', subprompt: 'Use both "going to" and "will".' },
+                { id: 'chal_8', prompt: 'Describe what you think your city will look like in 50 years (transport, buildings, and environment).', subprompt: 'Produce at least three complete sentences.' },
+                { id: 'chal_9', prompt: 'Make a sincere promise to a friend or teacher using "I will..." and explain why it matters.', subprompt: 'Remember: promises use "will".' },
+                { id: 'chal_10', prompt: 'Create a 4-sentence mini-story about a traveler that uses both "will" and "be going to" correctly.', subprompt: 'Tell your mini-story to the class.' },
+                { id: 'chal_11', prompt: 'Imagine you see someone carrying a broken umbrella in a heavy windstorm. Make two evidence-based predictions.', subprompt: 'Use "is going to..."' },
+                { id: 'chal_12', prompt: 'Choose a personal goal you have for this year and explain three steps you are going to take to achieve it.', subprompt: 'Use "I am going to..."' },
+                { id: 'chal_13', prompt: 'Invent a new future gadget and explain how it will change people’s daily lives.', subprompt: 'Use "It will..." to describe its impact.' },
+                { id: 'chal_14', prompt: 'Give two examples of spontaneous offers using "I’ll..." for problems in a classroom (e.g., cold room, heavy books).', subprompt: 'Say the problem and your immediate offer.' },
+                { id: 'chal_15', prompt: 'Make three connected predictions about what will happen if everyone learns to speak the same language.', subprompt: 'Use "If..., people will..."' }
+            ]
+        };
+
+        /**
+         * 2. SOUND SYNTHESIZER (Web Audio API)
+         */
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+            }
+            initContext() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playRollTick(pitchFactor = 1) {
+                try {
+                    this.initContext();
+                    if (!this.ctx) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(190 * pitchFactor, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(75, this.ctx.currentTime + 0.045);
+                    gain.gain.setValueAtTime(0.11, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.045);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.05);
+                } catch (e) {}
+            }
+            playDiceLand() {
+                try {
+                    this.initContext();
+                    if (!this.ctx) return;
+                    const notes = [523.25, 659.25, 783.99];
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        const startTime = this.ctx.currentTime + idx * 0.055;
+                        osc.frequency.setValueAtTime(freq, startTime);
+                        gain.gain.setValueAtTime(0.14, startTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.28);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.29);
+                    });
+                } catch (e) {}
+            }
+            playSuccessPoint() {
+                try {
+                    this.initContext();
+                    if (!this.ctx) return;
+                    const notes = [523.25, 659.25, 783.99, 1046.5];
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        const startTime = this.ctx.currentTime + idx * 0.065;
+                        osc.frequency.setValueAtTime(freq, startTime);
+                        gain.gain.setValueAtTime(0.18, startTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.36);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(startTime);
+                        osc.stop(startTime + 0.37);
+                    });
+                } catch (e) {}
+            }
+            playWrongTap() {
+                try {
+                    this.initContext();
+                    if (!this.ctx) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(190, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(125, this.ctx.currentTime + 0.16);
+                    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.17);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.18);
+                } catch (e) {}
+            }
+        }
+
+        const sfx = new SoundEffects();
+
+        /**
+         * 3. SESSION STATE & RANDOMIZATION WITHOUT REPLACEMENT
+         */
+        const STORAGE_KEY = 'future_predictions_dice_v3_clean';
+
+        function shuffleArray(array) {
+            const copy = [...array];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        function createInitialCategoryState() {
+            const catState = {};
+            CATEGORIES.forEach(cat => {
+                const allIds = QUESTION_BANK[cat.id].map(q => q.id);
+                catState[cat.id] = {
+                    shuffledQueue: shuffleArray(allIds),
+                    usedIds: []
+                };
+            });
+            return catState;
+        }
+
+        function createDefaultState() {
+            return {
+                categories: createInitialCategoryState(),
+                currentCategoryId: 'choose_form',
+                currentQuestionId: null
+            };
+        }
+
+        let gameState = loadState();
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return createDefaultState();
+                const parsed = JSON.parse(raw);
+                if (!parsed || !parsed.categories) return createDefaultState();
+                CATEGORIES.forEach(cat => {
+                    if (!parsed.categories[cat.id] || !Array.isArray(parsed.categories[cat.id].shuffledQueue)) {
+                        const allIds = QUESTION_BANK[cat.id].map(q => q.id);
+                        parsed.categories[cat.id] = {
+                            shuffledQueue: shuffleArray(allIds),
+                            usedIds: []
+                        };
+                    }
+                });
+                return parsed;
+            } catch (err) {
+                return createDefaultState();
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+            } catch (err) {}
+        }
+
+        function drawNextActivityForCategory(categoryId) {
+            const catTrack = gameState.categories[categoryId];
+            if (!catTrack) return null;
+            const unusedIds = catTrack.shuffledQueue.filter(id => !catTrack.usedIds.includes(id));
+            if (unusedIds.length === 0) {
+                gameState.currentCategoryId = categoryId;
+                gameState.currentQuestionId = null;
+                saveState();
+                return null;
+            }
+            const nextId = unusedIds[0];
+            catTrack.usedIds.push(nextId);
+            gameState.currentCategoryId = categoryId;
+            gameState.currentQuestionId = nextId;
+            saveState();
+            return QUESTION_BANK[categoryId].find(q => q.id === nextId) || null;
+        }
+
+        function resetSingleCategory(categoryId) {
+            const allIds = QUESTION_BANK[categoryId].map(q => q.id);
+            gameState.categories[categoryId] = {
+                shuffledQueue: shuffleArray(allIds),
+                usedIds: []
+            };
+            gameState.currentQuestionId = null;
+            saveState();
+        }
+
+        /**
+         * 4. GENUINE 3D WEBGL DICE ENGINE (Three.js)
+         */
+        const FACE_TARGET_EULERS = {
+            0: { x: 0, y: -Math.PI / 2, z: 0 },  // Right (+X) -> Front (+Z)
+            1: { x: 0, y: Math.PI / 2, z: 0 },   // Left (-X) -> Front (+Z)
+            2: { x: Math.PI / 2, y: 0, z: 0 },   // Top (+Y) -> Front (+Z)
+            3: { x: -Math.PI / 2, y: 0, z: 0 },  // Bottom (-Y) -> Front (+Z)
+            4: { x: 0, y: 0, z: 0 },             // Front (+Z) -> Front (+Z)
+            5: { x: 0, y: Math.PI, z: 0 }        // Back (-Z) -> Front (+Z)
+        };
+
+        let scene, camera, renderer, diceMesh, shadowMesh;
+        let isRolling = false;
+        let webglAvailable = true;
+        let isDraggingDice = false;
+        let prevPointer = { x: 0, y: 0 };
+
+        let rollAnim = {
+            active: false,
+            startTime: 0,
+            duration: 1900,
+            startRot: { x: 0, y: 0, z: 0 },
+            targetRot: { x: 0, y: 0, z: 0 },
+            dropHeight: 8.5,
+            selectedCategory: null,
+            lastTickStep: -1
+        };
+
+        function drawMinimalistFaceSymbol(ctx, faceIndex, cx, cy) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.94)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+            ctx.lineWidth = 7;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            switch (faceIndex) {
+                case 0: // Eye lens
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 52, cy);
+                    ctx.quadraticCurveTo(cx, cy - 42, cx + 52, cy);
+                    ctx.quadraticCurveTo(cx, cy + 42, cx - 52, cy);
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+                case 1: // Blank line
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 52, cy + 16);
+                    ctx.lineTo(cx + 52, cy + 16);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy - 12, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+                case 2: // Question curve
+                    ctx.beginPath();
+                    ctx.arc(cx, cy - 12, 22, Math.PI, 0, false);
+                    ctx.quadraticCurveTo(cx + 22, cy + 6, cx, cy + 14);
+                    ctx.lineTo(cx, cy + 22);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + 38, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+                case 3: // Three dots
+                    [-32, 0, 32].forEach(offset => {
+                        ctx.beginPath();
+                        ctx.arc(cx + offset, cy, 8, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                    break;
+                case 4: // Diverging choice paths
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy + 32);
+                    ctx.lineTo(cx, cy + 4);
+                    ctx.lineTo(cx - 34, cy - 26);
+                    ctx.moveTo(cx, cy + 4);
+                    ctx.lineTo(cx + 34, cy - 26);
+                    ctx.stroke();
+                    break;
+                case 5: // Diamond star
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy - 42);
+                    ctx.quadraticCurveTo(cx, cy, cx + 42, cy);
+                    ctx.quadraticCurveTo(cx, cy, cx, cy + 42);
+                    ctx.quadraticCurveTo(cx, cy, cx - 42, cy);
+                    ctx.quadraticCurveTo(cx, cy, cx, cy - 42);
+                    ctx.closePath();
+                    ctx.stroke();
+                    break;
+            }
+            ctx.restore();
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function createCategoryFaceTexture(category) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 512, 512);
+
+            const grad = ctx.createLinearGradient(0, 0, 512, 512);
+            grad.addColorStop(0, category.colorHex);
+            grad.addColorStop(1, category.colorDarkHex);
+
+            const pad = 20;
+            const radius = 64;
+            ctx.fillStyle = grad;
+            roundRect(ctx, pad, pad, 512 - pad * 2, 512 - pad * 2, radius);
+            ctx.fill();
+
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+            roundRect(ctx, pad + 18, pad + 18, 512 - (pad + 18) * 2, 512 - (pad + 18) * 2, radius - 14);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.beginPath();
+            ctx.arc(256, 182, 76, 0, Math.PI * 2);
+            ctx.fill();
+
+            drawMinimalistFaceSymbol(ctx, category.faceIndex, 256, 182);
+
+            const lines = category.shortTitle.split('\n');
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '700 38px "Plus Jakarta Sans", "Inter", sans-serif';
+
+            lines.forEach((line, idx) => {
+                ctx.fillText(line, 256, 336 + idx * 50);
+            });
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+            roundRect(ctx, 216, 432, 80, 6, 3);
+            ctx.fill();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.anisotropy = 4;
+            return texture;
+        }
+
+        function initThreeDice() {
+            const container = document.getElementById('dice-canvas-container');
+            if (typeof THREE === 'undefined') {
+                activateFallbackMode();
+                return;
+            }
+
+            try {
+                scene = new THREE.Scene();
+                const width = container.clientWidth || 440;
+                const height = container.clientHeight || 480;
+
+                camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+                camera.position.set(0, 0.55, 8.2);
+                camera.lookAt(0, -0.25, 0);
+
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+                container.appendChild(renderer.domElement);
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.88);
+                scene.add(ambientLight);
+
+                const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.65);
+                dirLight1.position.set(5, 9, 7);
+                scene.add(dirLight1);
+
+                const dirLight2 = new THREE.DirectionalLight(0xc4b5fd, 0.35);
+                dirLight2.position.set(-6, -4, 4);
+                scene.add(dirLight2);
+
+                const materials = CATEGORIES.map(cat => new THREE.MeshStandardMaterial({
+                    map: createCategoryFaceTexture(cat),
+                    roughness: 0.24,
+                    metalness: 0.06
+                }));
+
+                const geometry = new THREE.BoxGeometry(2.55, 2.55, 2.55);
+                diceMesh = new THREE.Mesh(geometry, materials);
+
+                const initialEuler = FACE_TARGET_EULERS[4];
+                diceMesh.rotation.set(initialEuler.x + 0.16, initialEuler.y - 0.22, 0);
+                diceMesh.position.y = -0.5;
+                scene.add(diceMesh);
+
+                const shadowGeo = new THREE.PlaneGeometry(3.4, 3.4);
+                const shadowCanvas = document.createElement('canvas');
+                shadowCanvas.width = 128;
+                shadowCanvas.height = 128;
+                const sCtx = shadowCanvas.getContext('2d');
+                const sGrad = sCtx.createRadialGradient(64, 64, 8, 64, 64, 60);
+                sGrad.addColorStop(0, 'rgba(30, 27, 75, 0.26)');
+                sGrad.addColorStop(1, 'rgba(30, 27, 75, 0)');
+                sCtx.fillStyle = sGrad;
+                sCtx.fillRect(0, 0, 128, 128);
+
+                const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+                const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
+                shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+                shadowMesh.rotation.x = -Math.PI / 2;
+                shadowMesh.position.y = -2.0;
+                scene.add(shadowMesh);
+
+                setupDicePointerControls(renderer.domElement);
+                window.addEventListener('resize', onResizeDiceCanvas);
+
+                animateThreeLoop();
+            } catch (err) {
+                activateFallbackMode();
+            }
+        }
+
+        function activateFallbackMode() {
+            webglAvailable = false;
+            const fb = document.getElementById('webgl-fallback');
+            if (fb) fb.classList.remove('hidden');
+        }
+
+        function onResizeDiceCanvas() {
+            if (!renderer || !camera) return;
+            const container = document.getElementById('dice-canvas-container');
+            if (!container) return;
+            const w = container.clientWidth || 380;
+            const h = container.clientHeight || 420;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+
+        function setupDicePointerControls(domElem) {
+            let dragDistance = 0;
+
+            domElem.addEventListener('pointerdown', (e) => {
+                if (isRolling) return;
+                isDraggingDice = true;
+                dragDistance = 0;
+                prevPointer = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!isDraggingDice || isRolling || !diceMesh) return;
+                const dx = e.clientX - prevPointer.x;
+                const dy = e.clientY - prevPointer.y;
+                dragDistance += Math.hypot(dx, dy);
+                diceMesh.rotation.y += dx * 0.009;
+                diceMesh.rotation.x += dy * 0.009;
+                prevPointer = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('pointerup', () => {
+                if (isDraggingDice && dragDistance < 8 && !isRolling) {
+                    triggerDiceRoll();
+                }
+                isDraggingDice = false;
+            });
+        }
+
+        function getDropBounceHeight(t) {
+            const n1 = 7.5625;
+            const d1 = 2.75;
+            let bounceProgress;
+            if (t < 1 / d1) {
+                bounceProgress = n1 * t * t;
+            } else if (t < 2 / d1) {
+                let t2 = t - 1.5 / d1;
+                bounceProgress = n1 * t2 * t2 + 0.75;
+            } else if (t < 2.5 / d1) {
+                let t2 = t - 2.25 / d1;
+                bounceProgress = n1 * t2 * t2 + 0.9375;
+            } else {
+                let t2 = t - 2.625 / d1;
+                bounceProgress = n1 * t2 * t2 + 0.984375;
+            }
+            return 1 - bounceProgress;
+        }
+
+        function animateThreeLoop(now = performance.now()) {
+            requestAnimationFrame(animateThreeLoop);
+            if (!webglAvailable || !renderer || !scene || !camera) return;
+
+            if (rollAnim.active && diceMesh) {
+                const elapsed = now - rollAnim.startTime;
+                const t = Math.min(elapsed / rollAnim.duration, 1);
+                const easeRot = 1 - Math.pow(1 - t, 3.2);
+
+                diceMesh.rotation.x = rollAnim.startRot.x + (rollAnim.targetRot.x - rollAnim.startRot.x) * easeRot;
+                diceMesh.rotation.y = rollAnim.startRot.y + (rollAnim.targetRot.y - rollAnim.startRot.y) * easeRot;
+                diceMesh.rotation.z = rollAnim.startRot.z + (rollAnim.targetRot.z - rollAnim.startRot.z) * easeRot;
+
+                const heightFactor = getDropBounceHeight(t);
+                const groundY = -0.5;
+                diceMesh.position.y = groundY + heightFactor * rollAnim.dropHeight;
+
+                if (shadowMesh) {
+                    const shadowScale = Math.max(0.2, 1.08 - heightFactor * 0.85);
+                    shadowMesh.scale.set(shadowScale, shadowScale, 1);
+                    shadowMesh.material.opacity = Math.max(0.05, 0.95 - heightFactor * 0.9);
+                }
+
+                const tickStep = Math.floor(easeRot * 12);
+                if (tickStep !== rollAnim.lastTickStep && t < 0.92) {
+                    rollAnim.lastTickStep = tickStep;
+                    sfx.playRollTick(0.85 + t * 0.45);
+                }
+
+                if (t >= 1) {
+                    rollAnim.active = false;
+                    diceMesh.rotation.set(rollAnim.targetRot.x, rollAnim.targetRot.y, rollAnim.targetRot.z);
+                    diceMesh.position.y = -0.5;
+                    if (shadowMesh) {
+                        shadowMesh.scale.set(1, 1, 1);
+                        shadowMesh.material.opacity = 1;
+                    }
+                    finishDiceRoll(rollAnim.selectedCategory);
+                }
+            } else if (diceMesh && !isDraggingDice) {
+                diceMesh.position.y = -0.5 + Math.sin(now * 0.0022) * 0.06;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function triggerDiceRoll() {
+            if (isRolling) return;
+            isRolling = true;
+
+            const rollBtn = document.getElementById('btn-roll-dice');
+            rollBtn.disabled = true;
+
+            const availableCategories = CATEGORIES.filter(cat => {
+                const track = gameState.categories[cat.id];
+                return track && track.usedIds.length < 15;
+            });
+
+            const pool = availableCategories.length > 0 ? availableCategories : CATEGORIES;
+            const chosenCategory = pool[Math.floor(Math.random() * pool.length)];
+
+            if (!webglAvailable || !diceMesh) {
+                sfx.playRollTick(1);
+                setTimeout(() => {
+                    document.getElementById('fallback-icon').textContent = chosenCategory.roman;
+                    document.getElementById('fallback-title').textContent = chosenCategory.title;
+                    document.getElementById('fallback-dice-face').style.backgroundColor = chosenCategory.colorHex;
+                    finishDiceRoll(chosenCategory);
+                }, 600);
+                return;
+            }
+
+            const twoPi = Math.PI * 2;
+            const curX = ((diceMesh.rotation.x % twoPi) + twoPi) % twoPi;
+            const curY = ((diceMesh.rotation.y % twoPi) + twoPi) % twoPi;
+            const curZ = ((diceMesh.rotation.z % twoPi) + twoPi) % twoPi;
+            diceMesh.rotation.set(curX, curY, curZ);
+
+            const baseTarget = FACE_TARGET_EULERS[chosenCategory.faceIndex];
+            const spinsX = (3 + Math.floor(Math.random() * 2)) * twoPi;
+            const spinsY = (3 + Math.floor(Math.random() * 2)) * twoPi;
+            const spinsZ = (2 + Math.floor(Math.random() * 2)) * twoPi;
+
+            diceMesh.position.y = -0.5 + 8.5;
+
+            rollAnim = {
+                active: true,
+                startTime: performance.now(),
+                duration: 1850,
+                startRot: { x: curX, y: curY, z: curZ },
+                targetRot: {
+                    x: baseTarget.x + spinsX,
+                    y: baseTarget.y + spinsY,
+                    z: baseTarget.z + spinsZ
+                },
+                dropHeight: 8.5,
+                selectedCategory: chosenCategory,
+                lastTickStep: -1
+            };
+        }
+
+        function finishDiceRoll(category) {
+            sfx.playDiceLand();
+
+            const ring = document.getElementById('dice-landing-ring');
+            ring.classList.remove('hidden', 'animate-ring-burst');
+            void ring.offsetWidth;
+            ring.classList.add('animate-ring-burst');
+
+            setTimeout(() => {
+                const rollBtn = document.getElementById('btn-roll-dice');
+                rollBtn.disabled = false;
+                isRolling = false;
+
+                const activity = drawNextActivityForCategory(category.id);
+                openActivityModal(category, activity);
+            }, 340);
+        }
+
+        /**
+         * 5. ACTIVITY CARD & CONFETTI CELEBRATION
+         */
+        let timerInterval = null;
+        let timerSecondsLeft = 30;
+        let timerRunning = false;
+
+        function resetTimer(seconds = 30) {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            timerSecondsLeft = seconds;
+            updateTimerDisplay();
+            const toggleBtn = document.getElementById('btn-timer-toggle');
+            if (toggleBtn) toggleBtn.textContent = 'Start';
+        }
+
+        function toggleTimer() {
+            const toggleBtn = document.getElementById('btn-timer-toggle');
+            if (timerRunning) {
+                clearInterval(timerInterval);
+                timerRunning = false;
+                toggleBtn.textContent = 'Resume';
+            } else {
+                if (timerSecondsLeft <= 0) timerSecondsLeft = 30;
+                timerRunning = true;
+                toggleBtn.textContent = 'Pause';
+                timerInterval = setInterval(() => {
+                    timerSecondsLeft--;
+                    updateTimerDisplay();
+                    if (timerSecondsLeft <= 0) {
+                        clearInterval(timerInterval);
+                        timerRunning = false;
+                        toggleBtn.textContent = 'Reset';
+                        sfx.playDiceLand();
+                    }
+                }, 1000);
+            }
+        }
+
+        function updateTimerDisplay() {
+            const disp = document.getElementById('timer-display');
+            if (!disp) return;
+            const mins = String(Math.floor(timerSecondsLeft / 60)).padStart(2, '0');
+            const secs = String(timerSecondsLeft % 60).padStart(2, '0');
+            disp.textContent = `${mins}:${secs}`;
+        }
+
+        function openActivityModal(category, questionObj) {
+            const emptyView = document.getElementById('empty-question-view');
+            const cardWrapper = document.getElementById('question-card-wrapper');
+            const dotEl = document.getElementById('activity-color-dot');
+            const titleEl = document.getElementById('activity-category-title');
+            const counterEl = document.getElementById('activity-counter-badge');
+            const exhaustedView = document.getElementById('exhausted-category-view');
+            const activeView = document.getElementById('active-question-view');
+            const timerWidget = document.getElementById('timer-widget');
+
+            emptyView.classList.add('hidden');
+            cardWrapper.classList.remove('hidden', 'animate-card-in');
+            void cardWrapper.offsetWidth;
+            cardWrapper.classList.add('flex', 'animate-card-in');
+
+            if (dotEl) dotEl.style.backgroundColor = category.colorHex;
+            titleEl.textContent = category.title;
+
+            const catState = gameState.categories[category.id];
+            const usedCount = catState ? catState.usedIds.length : 0;
+            counterEl.textContent = `${String(usedCount).padStart(2, '0')} / 15`;
+
+            resetTimer(30);
+            if (category.id === 'continue_sentence') {
+                timerWidget.classList.remove('hidden');
+                timerWidget.classList.add('flex');
+            } else {
+                timerWidget.classList.add('hidden');
+                timerWidget.classList.remove('flex');
+            }
+
+            if (!questionObj) {
+                exhaustedView.classList.remove('hidden');
+                exhaustedView.classList.add('flex');
+                activeView.classList.add('hidden');
+                document.getElementById('exhausted-cat-name').textContent = category.title;
+                return;
+            }
+
+            exhaustedView.classList.add('hidden');
+            exhaustedView.classList.remove('flex');
+            activeView.classList.remove('hidden');
+
+            document.getElementById('activity-prompt-text').textContent = questionObj.prompt;
+            document.getElementById('activity-subprompt').textContent = questionObj.subprompt || '';
+
+            const optionsContainer = document.getElementById('activity-options-container');
+            optionsContainer.innerHTML = '';
+
+            if (Array.isArray(questionObj.options) && questionObj.options.length > 0) {
+                optionsContainer.classList.remove('hidden');
+                optionsContainer.classList.add('grid');
+                questionObj.options.forEach((optText, idx) => {
+                    const optBtn = document.createElement('button');
+                    optBtn.type = 'button';
+                    optBtn.className = 'glass-pill text-slate-900 font-display font-semibold text-lg sm:text-xl py-4 px-6 rounded-2xl text-left flex items-center justify-between gap-3';
+                    optBtn.innerHTML = `<span>${optText}</span><span class="opt-status-icon flex items-center"></span>`;
+                    optBtn.addEventListener('click', (e) => handleOptionSelect(questionObj, idx, optBtn, optionsContainer, e));
+                    optionsContainer.appendChild(optBtn);
+                });
+            } else {
+                optionsContainer.classList.add('hidden');
+                optionsContainer.classList.remove('grid');
+            }
+        }
+
+        function launchConfettiBurst(originX, originY) {
+            const canvas = document.getElementById('confetti-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const colors = ['#10b981', '#34d399', '#6366f1', '#a855f7', '#38bdf8', '#fbbf24'];
+            const particles = [];
+
+            for (let i = 0; i < 65; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 4 + Math.random() * 11;
+                particles.push({
+                    x: originX,
+                    y: originY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 3.5,
+                    size: 6 + Math.random() * 6,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * Math.PI * 2,
+                    vRot: (Math.random() - 0.5) * 0.25,
+                    alpha: 1
+                });
+            }
+
+            function renderParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+                particles.forEach(p => {
+                    if (p.alpha <= 0.02) return;
+                    alive = true;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.36;
+                    p.vx *= 0.98;
+                    p.rotation += p.vRot;
+                    p.alpha -= 0.016;
+
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, p.alpha);
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+                    ctx.restore();
+                });
+
+                if (alive) {
+                    requestAnimationFrame(renderParticles);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+            requestAnimationFrame(renderParticles);
+        }
+
+        function handleOptionSelect(questionObj, chosenIdx, clickedBtn, container, event) {
+            const isCorrect = chosenIdx === questionObj.correctIndex;
+            const iconSpan = clickedBtn.querySelector('.opt-status-icon');
+
+            if (isCorrect) {
+                sfx.playSuccessPoint();
+                Array.from(container.children).forEach(btn => {
+                    btn.classList.remove('option-wrong');
+                });
+                clickedBtn.classList.remove('option-correct');
+                void clickedBtn.offsetWidth;
+                clickedBtn.classList.add('option-correct');
+                if (iconSpan) {
+                    iconSpan.innerHTML = `<svg class="w-6 h-6 stroke-white" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                }
+
+                const rect = clickedBtn.getBoundingClientRect();
+                const cx = event?.clientX || (rect.left + rect.width / 2);
+                const cy = event?.clientY || (rect.top + rect.height / 2);
+                launchConfettiBurst(cx, cy);
+            } else {
+                sfx.playWrongTap();
+                clickedBtn.classList.remove('option-wrong');
+                void clickedBtn.offsetWidth;
+                clickedBtn.classList.add('option-wrong');
+                if (iconSpan) iconSpan.innerHTML = '';
+            }
+        }
+
+        /**
+         * 6. INITIALIZATION & EVENT LISTENERS
+         */
+        window.addEventListener('DOMContentLoaded', () => {
+            initThreeDice();
+
+            document.getElementById('btn-roll-dice').addEventListener('click', triggerDiceRoll);
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && document.activeElement.tagName !== 'BUTTON') {
+                    e.preventDefault();
+                    triggerDiceRoll();
+                }
+            });
+
+            document.getElementById('btn-timer-toggle').addEventListener('click', toggleTimer);
+
+            document.getElementById('btn-exhausted-replay-cat').addEventListener('click', () => {
+                const catId = gameState.currentCategoryId;
+                resetSingleCategory(catId);
+                const cat = CATEGORIES.find(c => c.id === catId);
+                const nextQ = drawNextActivityForCategory(catId);
+                openActivityModal(cat, nextQ);
+            });
+        });
+    </script>
+</body>
+</html>
